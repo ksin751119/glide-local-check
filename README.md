@@ -10,7 +10,10 @@ A [Glide](https://www.glide.sh/)'s plugin that check version of local packages i
 ## Run
 
     glide local-check
+    
+or
 
+    glide-local-check
 ## License
 
 [The MIT License](https://github.com/ngdinhtoan/glide-cleanup/blob/master/LICENSE)
