@@ -1,0 +1,11 @@
+package: github.com/ksin751119/glide-local-check
+import:
+- package: github.com/Masterminds/glide
+  version: ^0.13.3
+  subpackages:
+  - action
+  - cfg
+  - msg
+  - path
+- package: github.com/Masterminds/vcs
+  version: ^1.13.1
