@@ -2,9 +2,11 @@ package main
 
 import (
 	"errors"
-	// "flag"
+	"flag"
 	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/Masterminds/glide/action"
 	"github.com/Masterminds/glide/cfg"
@@ -16,20 +18,16 @@ import (
 
 var (
 	glideLockYaml = gpath.LockFile
+	update        = false
 )
 
 func init() {
-	// flag.StringVar(&glideLockYaml, "lock", gpath.LockFile, "Set a YAML configuration file")
-}
-
-type GlideLocalCheckTask struct {
-	Lock *cfg.Lockfile
-	Conf *cfg.Config
-	Deps []*cfg.Dependency
+	flag.StringVar(&glideLockYaml, "lock", gpath.LockFile, "Set a glide.lock file")
+	flag.BoolVar(&update, "update", false, "Update local packages")
 }
 
 func main() {
-	// flag.Parse()
+	flag.Parse()
 
 	// Check GOPATH existed
 	action.EnsureGopath()
@@ -52,6 +50,13 @@ func main() {
 	}
 }
 
+// GlideLocalcheckTask Struct
+type GlideLocalCheckTask struct {
+	Lock *cfg.Lockfile
+	Conf *cfg.Config
+	Deps []*cfg.Dependency
+}
+
 func (t *GlideLocalCheckTask) LoadGlideLockFile() error {
 	// Load glide.yaml
 	t.Conf = action.EnsureConfig()
@@ -63,12 +68,13 @@ func (t *GlideLocalCheckTask) LoadGlideLockFile() error {
 		return err
 	}
 
-	// Check glide.lock version with glide.yaml
+	// Get glide.yaml hash
 	hash, err := t.Conf.Hash()
 	if err != nil {
 		return errors.New("Could not load lockfile.")
 	}
 
+	// Check glide.lock version with glide.yaml
 	if hash != t.Lock.Hash {
 		return errors.New("Lock file may be out of date. Hash check of YAML failed. You may need to run 'update'")
 	}
@@ -126,32 +132,76 @@ func (t *GlideLocalCheckTask) CheckLocalRepoCommit() error {
 		// Check local repo existed
 		version, err := repo.Version()
 		if err != nil {
-			notExisted(dep.Name)
+			msgNotExisted(dep.Name)
+			if update {
+				if err := updatePackage(dep); err != nil {
+					msg.Err(err.Error())
+				}
+			}
 			continue
 		}
 
 		// Check local commit is equal with lock reference
 		if version != dep.Reference {
-			notMatched(dep.Name, dep.Reference, version)
+			msgNotMatched(dep.Name, dep.Reference, version)
+			if update {
+				if err := updatePackage(dep); err != nil {
+					msg.Err(err.Error())
+				}
+			}
 			continue
 		}
 
-		matched(dep.Name)
+		msgMatched(dep.Name)
 	}
 	return nil
 }
 
-func notMatched(name, reference, commit string) {
+//////////////////////////////
+//      Commom Function     //
+//////////////////////////////
+
+func updatePackage(dep *cfg.Dependency) error {
+	// Ask user again.
+	yes := ""
+	fmt.Print("Do you want update the repo(Y/N):")
+	fmt.Scanln(&yes)
+	if strings.ToLower(yes) != "y" {
+		return nil
+	}
+
+	// Setup repo info
+	dest := fmt.Sprintf("%s/src/%s", gpath.Gopath(), filepath.ToSlash(dep.Name))
+	os.RemoveAll(dest)
+	repo, err := dep.GetRepo(dest)
+	if err != nil {
+		return err
+	}
+
+	// Clone repo
+	if err := repo.Get(); err != nil {
+		return err
+	}
+
+	// Update commit version
+	if err := repo.UpdateVersion(dep.Reference); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func msgNotMatched(name, reference, commit string) {
 	mtag := msg.Color(msg.Yellow, "[Not Matched]")
 	msg.Msg("%s %s (refernce: %s, commit: %s)", mtag, msg.Color(msg.Pink, name), reference, commit)
 }
 
-func notExisted(name string) {
+func msgNotExisted(name string) {
 	mtag := msg.Color(msg.Cyan, "[Not Existed]")
 	msg.Msg("%s %s: no such file or directory ", mtag, msg.Color(msg.Pink, name))
 }
 
-func matched(name string) {
+func msgMatched(name string) {
 	mtag := msg.Color(msg.Green, "[Ok] "+name)
 	msg.Msg(mtag)
 }
