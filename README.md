@@ -14,6 +14,11 @@ A [Glide](https://www.glide.sh/)'s plugin that check version of local packages i
 or
 
     glide-local-check
-## License
 
+## Screen
+
+
+![image](https://github.com/ksin751119/glide-local-check/blob/master/readme.png)
+
+## License
 [The MIT License](https://github.com/ngdinhtoan/glide-cleanup/blob/master/LICENSE)
